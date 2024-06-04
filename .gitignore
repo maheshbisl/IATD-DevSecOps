@@ -1,1 +1,4 @@
 .idea
+__pycache__/
+api_views/__pycache__/
+models/__pycache__/
