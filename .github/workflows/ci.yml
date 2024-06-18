@@ -119,6 +119,26 @@ jobs:
           name: zap-report
           path: report_json.json
 
+  image_scan:
+    needs: [test]
+    if: true
+    runs-on: ubuntu-latest
+    steps:
+        - name: Scan image
+          uses: anchore/scan-action@v3
+          id: image-scan
+          with:
+            image: ${{ secrets.DOCKERHUB_USERNAME }}/devops-labs:latest
+            fail-build: false
+            output-format: json
+        - name: Upload Image report
+          id: upload-image-report
+          uses: actions/upload-artifact@v4
+          with:
+            name: image-report
+            path: ${{ steps.image-scan.outputs.json }}
+
+
   build:
     needs: [test, sonarqube, dast]
     runs-on: ubuntu-latest
@@ -143,7 +163,7 @@ jobs:
           tags: ${{ secrets.DOCKERHUB_USERNAME }}/devops-labs:latest
 
   submit_results:
-    needs: [build]
+    needs: [build, image_scan]
     if: true
     runs-on: ubuntu-latest
     steps:
@@ -180,3 +200,6 @@ jobs:
 
           ZAP_RESPONSE=$(curl -X POST -H "Authorization: Bearer $AZURE_ACCESS_TOKEN"  --data-binary @$GITHUB_WORKSPACE/report_json.json https://devsecops-ver.azurewebsites.net/api/week3-zap-report)
           echo "Zap upload: $ZAP_RESPONSE"
+
+          IMAGE_RESPONSE=$(curl -X POST -H "Authorization: Bearer $AZURE_ACCESS_TOKEN" --data-binary @$GITHUB_WORKSPACE/results.json https://devsecops-ver.azurewebsites.net/api/week4-image-report)
+          echo "Image report upload: $IMAGE_RESPONSE"
