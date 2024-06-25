@@ -187,8 +187,7 @@ jobs:
         echo "All security gates passed"
 
   build:
-    # needs: [security_gate]
-    if: true
+    needs: [security_gate]
     permissions:
       id-token: write
     runs-on: ubuntu-latest
