@@ -119,8 +119,43 @@ jobs:
           name: zap-report
           path: report_json.json
 
+  build:
+    permissions:
+      id-token: write
+    runs-on: ubuntu-latest
+    steps:
+      -
+        name: Set up QEMU
+        uses: docker/setup-qemu-action@v3
+      -
+        name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+      -
+        name: Login to Docker Hub
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+      -
+        name: Build and push
+        uses: docker/build-push-action@v5
+        with:
+          sbom: true
+          provenance: true
+          push: true
+          tags: ${{ secrets.DOCKERHUB_USERNAME }}/devops-labs:latest
+
+      - name: Install Cosign
+        uses: sigstore/cosign-installer@v3.4.0
+
+      - name: Sign the images with GitHub OIDC Token
+        env:
+          IMAGE: ${{ secrets.DOCKERHUB_USERNAME }}/devops-labs:latest
+        run: |
+          cosign sign --yes ${IMAGE}
+
   image_scan:
-    needs: [test]
+    needs: [build]
     if: true
     runs-on: ubuntu-latest
     steps:
@@ -185,42 +220,6 @@ jobs:
         fi
 
         echo "All security gates passed"
-
-  build:
-    needs: [security_gate]
-    permissions:
-      id-token: write
-    runs-on: ubuntu-latest
-    steps:
-      -
-        name: Set up QEMU
-        uses: docker/setup-qemu-action@v3
-      -
-        name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
-      -
-        name: Login to Docker Hub
-        uses: docker/login-action@v3
-        with:
-          username: ${{ secrets.DOCKERHUB_USERNAME }}
-          password: ${{ secrets.DOCKERHUB_TOKEN }}
-      -
-        name: Build and push
-        uses: docker/build-push-action@v5
-        with:
-          sbom: true
-          provenance: true
-          push: true
-          tags: ${{ secrets.DOCKERHUB_USERNAME }}/devops-labs:latest
-
-      - name: Install Cosign
-        uses: sigstore/cosign-installer@v3.4.0
-
-      - name: Sign the images with GitHub OIDC Token
-        env:
-          IMAGE: ${{ secrets.DOCKERHUB_USERNAME }}/devops-labs:latest
-        run: |
-          cosign sign --yes ${IMAGE}
 
   submit_results:
     needs: [sonarqube, dast, image_scan]
